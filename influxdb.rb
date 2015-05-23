@@ -27,9 +27,10 @@ module Sensu::Extension
       begin
         event = MultiJson.load(event)
         host = event[:client][:name]
-        series = event[:check][:name]
-        timestamp = event[:check][:issued]
-        duration = event[:check][:duration]
+        ip = event[:client][:address]
+        _series = event[:check][:name]
+        _timestamp = event[:check][:issued]
+        _duration = event[:check][:duration]
         output = event[:check][:output]
       rescue => e
         @logger.error "InfluxDB: Error setting up event object - #{e.backtrace}"
@@ -37,28 +38,26 @@ module Sensu::Extension
 
       begin
         points = []
-        output.each_line do |line|
-          @logger.debug("Parsing line: #{line}")
-          k,v,t = line.split(/\s+/)
-          v = v.match('\.').nil? ? Integer(v) : Float(v) rescue v.to_s
-
-          if @settings['influxdb']['strip_metric']
-            k.gsub!(/^.*#{@settings['influxdb']['strip_metric']}\.(.*$)/, '\1')
+        output.each_line do |metric|
+          m = metric.split
+          next unless m.count == 3
+          series = m[0].split('.', 2)[1]
+          next unless series
+          series.gsub!('.', '_')
+          value = m[1].to_f
+          points = { host: host, ip: ip, value: value }
+          begin
+            @influxdb.write_point(series, points, true)
+          rescue => e
+            @logger.error "InfluxDB: Error posting event - #{e.backtrace}"
           end
-
-          points << {:time => t.to_f, :host => host, :metric => k, :value => v}
         end
       rescue => e
         @logger.error "InfluxDB: Error parsing output lines - #{e.backtrace}"
         @logger.error "InfluxDB: #{output}"
       end
 
-      begin
-        @influxdb.write_point(series, points, true)
-      rescue => e
-        @logger.error "InfluxDB: Error posting event - #{e.backtrace}"
-      end
-      yield("InfluxDB: Handler finished", 0)
+      # yield("InfluxDB: Handler finished", 0)
     end
 
   end
