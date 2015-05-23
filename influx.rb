@@ -15,7 +15,11 @@ module Sensu::Extension
     end
 
     def post_init
-      @influxdb = ::InfluxDB::Client.new settings['influx']['database'], :host => settings['influx']['host'], :port => settings['influx']['port'], :username => settings['influx']['user'], :password => settings['influx']['password']
+      @influxdb = ::InfluxDB::Client.new settings['influx']['database'],
+          :host     => settings['influx']['host'],
+          :port     => settings['influx']['port'],
+          :username => settings['influx']['user'],
+          :password => settings['influx']['password']
       @timeout = @settings['influx']['timeout'] || 15
     end
 
@@ -28,27 +32,31 @@ module Sensu::Extension
         duration = event[:check][:duration]
         output = event[:check][:output]
       rescue => e
-        @logger.error("InfluxDB: Error setting up event object - #{e.backtrace.to_s}")
+        @logger.error "InfluxDB: Error setting up event object - #{e.backtrace}"
       end
 
       begin
         points = []
-        output.split(/\n/).each do |line|
+        output.each_line do |line|
           @logger.debug("Parsing line: #{line}")
-	  k,v,t = line.split(/\s+/)
+          k,v,t = line.split(/\s+/)
           v = v.match('\.').nil? ? Integer(v) : Float(v) rescue v.to_s
-          k.gsub!(/^.*#{@settings['influx']['strip_metric']}\.(.*$)/, '\1') if @settings['influx']['strip_metric']
+
+          if @settings['influx']['strip_metric']
+            k.gsub!(/^.*#{@settings['influx']['strip_metric']}\.(.*$)/, '\1')
+          end
+
           points << {:time => t.to_f, :host => host, :metric => k, :value => v}
         end
       rescue => e
-        @logger.error("InfluxDB: Error parsing output lines - #{e.backtrace.to_s}")
-        @logger.error("InfluxDB: #{output}")
+        @logger.error "InfluxDB: Error parsing output lines - #{e.backtrace}"
+        @logger.error "InfluxDB: #{output}"
       end
 
       begin
         @influxdb.write_point(series, points, true)
       rescue => e
-        @logger.error("InfluxDB: Error posting event - #{e.backtrace.to_s}")
+        @logger.error "InfluxDB: Error posting event - #{e.backtrace}"
       end
       yield("InfluxDB: Handler finished", 0)
     end
