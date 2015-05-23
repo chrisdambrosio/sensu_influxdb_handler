@@ -4,7 +4,7 @@ require 'timeout'
 
 module Sensu::Extension
 
-  class InfluxDB < Handler
+  class SendsToInfluxDB < Handler
 
     def name
       'influxdb'
@@ -15,12 +15,12 @@ module Sensu::Extension
     end
 
     def post_init
-      @influxdb = ::InfluxDB::Client.new settings['influx']['database'],
-          :host     => settings['influx']['host'],
-          :port     => settings['influx']['port'],
-          :username => settings['influx']['user'],
-          :password => settings['influx']['password']
-      @timeout = @settings['influx']['timeout'] || 15
+      @influxdb = InfluxDB::Client.new settings['influxdb']['database'],
+          :host     => settings['influxdb']['host'],
+          :port     => settings['influxdb']['port'],
+          :username => settings['influxdb']['user'],
+          :password => settings['influxdb']['password']
+      @timeout = @settings['influxdb']['timeout'] || 15
     end
 
     def run(event)
@@ -42,8 +42,8 @@ module Sensu::Extension
           k,v,t = line.split(/\s+/)
           v = v.match('\.').nil? ? Integer(v) : Float(v) rescue v.to_s
 
-          if @settings['influx']['strip_metric']
-            k.gsub!(/^.*#{@settings['influx']['strip_metric']}\.(.*$)/, '\1')
+          if @settings['influxdb']['strip_metric']
+            k.gsub!(/^.*#{@settings['influxdb']['strip_metric']}\.(.*$)/, '\1')
           end
 
           points << {:time => t.to_f, :host => host, :metric => k, :value => v}
