@@ -4,10 +4,10 @@ require 'timeout'
 
 module Sensu::Extension
 
-  class Influx < Handler
+  class InfluxDB < Handler
 
     def name
-      'influx'
+      'influxdb'
     end
 
     def description
@@ -15,7 +15,7 @@ module Sensu::Extension
     end
 
     def post_init
-      @influxdb = InfluxDB::Client.new settings['influx']['database'], :host => settings['influx']['host'], :port => settings['influx']['port'], :username => settings['influx']['user'], :password => settings['influx']['password']
+      @influxdb = ::InfluxDB::Client.new settings['influx']['database'], :host => settings['influx']['host'], :port => settings['influx']['port'], :username => settings['influx']['user'], :password => settings['influx']['password']
       @timeout = @settings['influx']['timeout'] || 15
     end
 
